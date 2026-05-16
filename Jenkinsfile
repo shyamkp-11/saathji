@@ -28,29 +28,39 @@ pipeline {
   }
 
   environment {
-    // Compose reads these from env. Jenkins masks them in logs.
-    MYSQL_PASSWORD    = credentials('ruhani-mysql-password')
-    RUHANI_JWT_SECRET = credentials('ruhani-jwt-secret')
-
-    // Non-secret defaults — override via Jenkins env vars if needed.
-    MYSQL_HOST = "${env.MYSQL_HOST ?: '10.0.0.83'}"
-    MYSQL_PORT = "${env.MYSQL_PORT ?: '3306'}"
-    MYSQL_DB   = "${env.MYSQL_DB ?: 'ruhani'}"
-    MYSQL_USER = "${env.MYSQL_USER ?: 'ruhani'}"
-
-    // OTP delivery — set RUHANI_EMAIL_PROVIDER=ses + AWS_* credentials in
-    // Jenkins to enable real SES. Default `log` keeps things printing to stdout.
-    RUHANI_EMAIL_PROVIDER = "${env.RUHANI_EMAIL_PROVIDER ?: 'log'}"
-    RUHANI_EMAIL_FROM     = "${env.RUHANI_EMAIL_FROM ?: 'no-reply@saathji.com'}"
-    RUHANI_AWS_REGION     = "${env.RUHANI_AWS_REGION ?: 'us-east-2'}"
+    WEBAPP_CREDENTIALS = credentials('saathji-backend.webapp-secrets');
   }
 
   stages {
-    stage('Checkout') {
-      steps { checkout scm }
+
+    stage ('Init') {
+      steps {
+        script {
+          def props = readProperties file: env.WEBAPP_CREDENTIALS
+          // Compose reads these from env. Jenkins masks them in logs.
+          env.MYSQL_PASSWORD    = props.MYSQL_PASSWORD
+          env.RUHANI_JWT_SECRET = props.RUHANI_JWT_SECRET
+          // Non-secret defaults — override via Jenkins env vars if needed.
+          env.MYSQL_HOST = "${env.MYSQL_HOST ?: '10.0.0.83'}"
+          env.MYSQL_PORT = "${env.MYSQL_PORT ?: '3306'}"
+          env.MYSQL_DB   = "${env.MYSQL_DB ?: 'ruhani'}"
+          env.MYSQL_USER = "${env.MYSQL_USER ?: 'ruhani'}"
+          // OTP delivery — set RUHANI_EMAIL_PROVIDER=ses + AWS_* credentials in
+          // Jenkins to enable real SES. Default `log` keeps things printing to stdout.
+          env.RUHANI_EMAIL_PROVIDER = "${env.RUHANI_EMAIL_PROVIDER ?: 'log'}"
+          env.RUHANI_EMAIL_FROM     = "${env.RUHANI_EMAIL_FROM ?: 'no-reply@saathji.com'}"
+          env.RUHANI_AWS_REGION     = "${env.RUHANI_AWS_REGION ?: 'us-east-2'}"
+          env.BACKEND_PORT = "${env.BACKEND_PORT ?: '8085'}"
+        }
+      }
     }
 
     stage('Build image') {
+      when {
+        expression {
+      	  return true
+        }
+      }
       steps {
         sh 'docker compose build --pull'
       }
@@ -66,6 +76,7 @@ pipeline {
     }
 
     stage('Smoke test') {
+    agent any
       steps {
         sh '''
           set -e
