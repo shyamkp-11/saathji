@@ -18,6 +18,7 @@ class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
+            .cors { }   // honor CorsConfigurationSource / WebConfig CORS so preflight isn't blocked
             .csrf { it.disable() }
             .anonymous { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
@@ -31,6 +32,7 @@ class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
             }
             .authorizeHttpRequests { auth ->
                 auth
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/auth/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/search").permitAll()
