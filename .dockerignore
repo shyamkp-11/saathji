@@ -1,0 +1,32 @@
+# Don't ship local build / IDE / VCS artifacts into the Docker build context.
+# Keeps `docker build` fast and the resulting image lean.
+
+.git/
+.gitignore
+
+# Gradle / build outputs (we rebuild inside the container)
+build/
+.gradle/
+out/
+*.log
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
+webapp-secrets.properties
+
+# Docker artifacts themselves
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml

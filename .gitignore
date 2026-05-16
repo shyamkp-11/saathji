@@ -6,3 +6,4 @@ build/
 *.iws
 out/
 /webapp-secrets.properties
+.env

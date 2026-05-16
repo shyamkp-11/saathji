@@ -1,0 +1,58 @@
+# Single-service compose for local dev / single-host deploy.
+# Backend connects to an external MySQL (default: 10.0.0.83 on the LAN).
+#
+# Bring up:   docker compose up --build
+# Tear down:  docker compose down
+#
+# Required env (drop in .env or export before `up`):
+#   MYSQL_PASSWORD       — DB user password
+#   RUHANI_JWT_SECRET    — ≥32 random bytes for HMAC signing
+#
+# Optional:
+#   MYSQL_HOST, MYSQL_PORT, MYSQL_DB, MYSQL_USER
+#   RUHANI_EMAIL_PROVIDER (log|ses), RUHANI_EMAIL_FROM, RUHANI_AWS_REGION
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (only when provider=ses)
+
+services:
+  backend:
+    build: .
+    image: ruhani-backend:latest
+    container_name: ruhani-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      # Persistence
+      MYSQL_HOST:     "${MYSQL_HOST:-10.0.0.83}"
+      MYSQL_PORT:     "${MYSQL_PORT:-3306}"
+      MYSQL_DB:       "${MYSQL_DB:-ruhani}"
+      MYSQL_USER:     "${MYSQL_USER:-ruhani}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+
+      # Auth
+      RUHANI_JWT_SECRET: "${RUHANI_JWT_SECRET:?RUHANI_JWT_SECRET is required}"
+
+      # Email
+      RUHANI_EMAIL_PROVIDER: "${RUHANI_EMAIL_PROVIDER:-log}"
+      RUHANI_EMAIL_FROM:     "${RUHANI_EMAIL_FROM:-no-reply@saathji.com}"
+      RUHANI_AWS_REGION:     "${RUHANI_AWS_REGION:-us-east-2}"
+      AWS_ACCESS_KEY_ID:     "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+
+      # Rate-limit overrides (optional)
+      RUHANI_RL_OTP_REQ_PER_EMAIL:    "${RUHANI_RL_OTP_REQ_PER_EMAIL:-5}"
+      RUHANI_RL_OTP_REQ_PER_IP:       "${RUHANI_RL_OTP_REQ_PER_IP:-20}"
+      RUHANI_RL_OTP_VERIFY_PER_EMAIL: "${RUHANI_RL_OTP_VERIFY_PER_EMAIL:-10}"
+
+    # On Linux, lets the container resolve `host.docker.internal` to the host
+    # gateway (already automatic on macOS Docker Desktop). Useful if MySQL ever
+    # moves onto the same host as the backend.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 45s
