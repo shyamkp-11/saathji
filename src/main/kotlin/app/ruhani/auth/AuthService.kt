@@ -2,6 +2,7 @@ package app.ruhani.auth
 
 import app.ruhani.jwt.JwtService
 import app.ruhani.model.*
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -14,13 +15,22 @@ class AuthService(
     private val refreshTokenStore: RefreshTokenStore,
     private val jwtService: JwtService,
     private val emailSender: EmailSender,
+    @Qualifier("otpRequestPerEmail") private val otpRequestPerEmail: RateLimiter,
+    @Qualifier("otpRequestPerIp")    private val otpRequestPerIp: RateLimiter,
+    @Qualifier("otpVerifyPerEmail")  private val otpVerifyPerEmail: RateLimiter,
 ) {
-    fun requestOtp(email: String) {
+    fun requestOtp(email: String, clientIp: String) {
+        // Two independent limits: one user abusing many IPs and many users sharing one IP
+        // are both bounded.
+        otpRequestPerEmail.checkOrThrow("email:${email.lowercase()}")
+        otpRequestPerIp.checkOrThrow("ip:$clientIp")
         val code = otpStore.generate(email)
         emailSender.sendOtp(email, code)
     }
 
     fun verifyOtp(email: String, code: String): VerifyOtpResponse {
+        // Anti brute-force on the 6-digit code (~1M space, would crack in seconds otherwise).
+        otpVerifyPerEmail.checkOrThrow("email:${email.lowercase()}")
         if (!otpStore.verify(email, code)) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired OTP")
         }

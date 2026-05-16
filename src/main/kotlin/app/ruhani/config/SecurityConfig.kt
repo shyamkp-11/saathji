@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
 
 @Configuration
 @EnableWebSecurity
@@ -22,6 +23,16 @@ class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
             .csrf { it.disable() }
             .anonymous { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            // Defense-in-depth response headers. HSTS only takes effect over HTTPS;
+            // it's harmless on HTTP and ready for the TLS-terminating proxy in prod.
+            .headers { h ->
+                h.httpStrictTransportSecurity { hsts ->
+                    hsts.includeSubDomains(true).maxAgeInSeconds(31_536_000)  // 1 year
+                }
+                h.frameOptions { it.deny() }
+                h.contentTypeOptions { }
+                h.referrerPolicy { it.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN) }
+            }
             .exceptionHandling {
                 it.authenticationEntryPoint { _, res, _ ->
                     res.sendError(HttpServletResponse.SC_UNAUTHORIZED)
@@ -34,6 +45,7 @@ class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
                 auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/auth/**").permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/search").permitAll()
                     .requestMatchers(HttpMethod.GET, "/authors/*/posts").permitAll()

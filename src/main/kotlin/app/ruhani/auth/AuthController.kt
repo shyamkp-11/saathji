@@ -1,6 +1,7 @@
 package app.ruhani.auth
 
 import app.ruhani.model.*
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
@@ -11,9 +12,17 @@ class AuthController(private val authService: AuthService) {
 
     @PostMapping("/request-otp")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun requestOtp(@RequestBody req: RequestOtpRequest) {
-        authService.requestOtp(req.email)
+    fun requestOtp(@RequestBody req: RequestOtpRequest, request: HttpServletRequest) {
+        authService.requestOtp(req.email, request.clientIp())
     }
+
+    /**
+     * When the backend runs behind a trusted reverse proxy (e.g. a load
+     * balancer), Spring's `ForwardedHeaderFilter` rewrites `remoteAddr` to the
+     * value from `X-Forwarded-For`. This is enabled via
+     * `server.forward-headers-strategy: framework`.
+     */
+    private fun HttpServletRequest.clientIp(): String = remoteAddr ?: "unknown"
 
     @PostMapping("/verify-otp")
     fun verifyOtp(@RequestBody req: VerifyOtpRequest): VerifyOtpResponse =

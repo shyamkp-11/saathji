@@ -1,5 +1,8 @@
 server:
   port: 8080
+  # When deployed behind a reverse proxy that sets X-Forwarded-* headers,
+  # this rewrites remoteAddr / scheme so things like rate-limit-by-IP work.
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -8,8 +11,8 @@ spring:
     default-property-inclusion: non_null
   datasource:
     url: "jdbc:mysql://${MYSQL_HOST:10.0.0.83}:${MYSQL_PORT:3306}/${MYSQL_DB:ruhani}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&useUnicode=true&connectionCollation=utf8mb4_unicode_ci"
-    username: "${MYSQL_USER:ruhani}"
-    password: "${MYSQL_PASSWORD:}"
+    username: "${MYSQL_USER:root}"
+    password: "${MYSQL_PASSWORD:adminPassword}"
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     open-in-view: false
@@ -23,7 +26,11 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: "classpath:db/migration"
-
+  mail:
+    host: "${SPRING_MAIL_HOST}"
+    port: "${SPRING_MAIL_PORT}"
+    username: "${SPRING_MAIL_USERNAME:}"
+    password: "${SPRING_MAIL_PASSWORD:}"
 ruhani:
   jwt:
     # min 256 bits for HMAC-SHA; override via RUHANI_JWT_SECRET env var in production
@@ -36,6 +43,22 @@ ruhani:
     # 'log' (default) prints OTP to stdout; 'ses' sends via AWS SES v2.
     provider: "${RUHANI_EMAIL_PROVIDER:log}"
     # Verified SES sender; required only when provider=ses.
-    from: "${RUHANI_EMAIL_FROM:no-reply@ruhani.app}"
+    from: "${RUHANI_EMAIL_FROM:no-reply@saathji.com}"
   aws:
-    region: "${RUHANI_AWS_REGION:us-east-1}"
+    region: "${RUHANI_AWS_REGION:us-east-2}"
+  rate-limit:
+    otp-request:
+      per-email-per-hour: ${RUHANI_RL_OTP_REQ_PER_EMAIL:5}
+      per-ip-per-hour:    ${RUHANI_RL_OTP_REQ_PER_IP:20}
+    otp-verify:
+      per-email-per-hour: ${RUHANI_RL_OTP_VERIFY_PER_EMAIL:10}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+  endpoint:
+    health:
+      # 'never' so /actuator/health doesn't leak DB host / version
+      show-details: never
