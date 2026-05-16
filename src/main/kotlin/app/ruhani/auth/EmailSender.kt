@@ -38,7 +38,7 @@ class LoggingEmailSender : EmailSender {
 @ConditionalOnProperty(name = ["ruhani.email.provider"], havingValue = "ses")
 class SesEmailSender(
     @Value("\${ruhani.email.from}") private val fromAddress: String,
-    @Value("\${ruhani.aws.region:us-east-1}") private val region: String,
+    @Value("\${ruhani.aws.region:us-east-2}") private val region: String,
 ) : EmailSender {
 
     private val client: SesV2Client by lazy {
@@ -46,7 +46,7 @@ class SesEmailSender(
     }
 
     override fun sendOtp(toEmail: String, code: String) {
-        val subject = "Your Ruhani sign-in code"
+        val subject = "Your Saathji App sign-in code"
         val bodyText = """
             |Your one-time sign-in code is:
             |
