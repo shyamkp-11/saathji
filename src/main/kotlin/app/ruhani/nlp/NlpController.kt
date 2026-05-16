@@ -9,23 +9,27 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-/**
- * Stub NLP controller — returns source text as-is for every requested target
- * script. Replace with real transliteration (ICU4J, cloud API, etc.) later.
- */
 @RestController
 @RequestMapping("/nlp")
-class NlpController {
+class NlpController(private val transliterationService: TransliterationService) {
 
     @PostMapping("/transliterate")
     fun transliterate(@RequestBody req: TransliterateRequest): TransliterateResponse =
-        TransliterateResponse(results = req.toScripts.associateWith { req.text })
+        TransliterateResponse(
+            results = req.toScripts.associateWith { target ->
+                transliterationService.translate(req.text, req.fromScript, target)
+            },
+        )
 
     @PostMapping("/transliterate-batch")
     fun transliterateBatch(@RequestBody req: TransliterateBatchRequest): TransliterateBatchResponse =
         TransliterateBatchResponse(
             results = req.lines.map { line ->
-                TransliterateResponse(results = req.toScripts.associateWith { line })
+                TransliterateResponse(
+                    results = req.toScripts.associateWith { target ->
+                        transliterationService.translate(line, req.fromScript, target)
+                    },
+                )
             },
         )
 }
