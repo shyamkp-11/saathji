@@ -41,12 +41,17 @@ fun TokenEntity.toDto() = TokenDto(
     wordEntryId = wordEntryId,
 )
 
-fun WordMeaningEntity.toDto(viewerUserId: String?) = WordMeaningDto(
+/**
+ * Upvote state can no longer be derived from the entity alone — that's now a
+ * separate join table. Callers compute `viewerUpvoted` upstream (typically via
+ * `MeaningUpvoteRepository.existsBy...`) and pass it in.
+ */
+fun WordMeaningEntity.toDto(viewerUpvoted: Boolean) = WordMeaningDto(
     id = id,
     wordEntryId = wordEntryId,
     text = text,
     authorId = authorId,
     createdAt = createdAt.toString(),
     upvoteCount = upvoteCount,
-    viewerUpvoted = viewerUserId != null && upvoterIds.contains(viewerUserId),
+    viewerUpvoted = viewerUpvoted,
 )

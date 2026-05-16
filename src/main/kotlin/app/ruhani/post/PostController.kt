@@ -93,7 +93,7 @@ class PostController(
             }
             post.lines.add(line)
         }
-        return post.toDto()
+        return postStore.save(post).toDto()
     }
 
     @PostMapping("/posts/{id}/publish")
@@ -102,7 +102,7 @@ class PostController(
         if (post.authorId != auth.name) throw ResponseStatusException(HttpStatus.FORBIDDEN)
         post.status = "PUBLISHED"
         post.publishedAt = Instant.now()
-        return post.toDto()
+        return postStore.save(post).toDto()
     }
 
     @DeleteMapping("/posts/{id}")
@@ -131,10 +131,13 @@ class PostController(
         val post = postStore.findById(id) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
         val entry = meaningStore.findEntryByWord(word, post.languageCode)
         val wordMeanings = entry?.let { meaningStore.getMeanings(it.id) } ?: emptyList()
+        val viewerId = auth?.name
         return MeaningsBundleDto(
             word = word,
             languageCode = post.languageCode,
-            wordMeanings = wordMeanings.map { it.toDto(auth?.name) },
+            wordMeanings = wordMeanings.map { m ->
+                m.toDto(viewerUpvoted = viewerId != null && meaningStore.hasUpvoted(m.id, viewerId))
+            },
         )
     }
 

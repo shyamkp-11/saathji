@@ -1,45 +1,48 @@
 package app.ruhani.auth
 
+import app.ruhani.model.RefreshTokenEntity
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentHashMap
+import org.springframework.transaction.annotation.Transactional
 
 /**
- * Tracks opaque refresh tokens with rotation and reuse detection.
+ * Refresh-token persistence with rotation and reuse detection.
  *
- * - `valid`: tokens that can be used right now (token → userId)
- * - `rotated`: tokens that were once valid but have been exchanged (token → userId)
- *   Presenting a rotated token means the previous holder's copy was stolen;
- *   we revoke all sessions for that user.
+ * Tokens transition VALID → ROTATED on a successful refresh and stay around
+ * so we can detect replay attacks. If a token presented to [useToken] has
+ * status=ROTATED the previous owner's copy was leaked — we revoke every
+ * other VALID token for that user.
  */
 @Component
-class RefreshTokenStore {
-    private val valid = ConcurrentHashMap<String, String>()    // token → userId
-    private val rotated = ConcurrentHashMap<String, String>()  // token → userId
+@Transactional
+class RefreshTokenStore(private val repo: RefreshTokenRepository) {
 
     fun store(token: String, userId: String) {
-        valid[token] = userId
+        repo.save(RefreshTokenEntity(token = token, userId = userId, status = "VALID"))
     }
 
     /** Consumes `token` and returns the userId, or null if invalid/revoked. */
     fun useToken(token: String): String? {
-        val userId = valid.remove(token)
-        if (userId != null) {
-            rotated[token] = userId
-            return userId
+        val entity = repo.findById(token).orElse(null) ?: return null
+        return when (entity.status) {
+            "VALID" -> {
+                entity.status = "ROTATED"
+                repo.save(entity)
+                entity.userId
+            }
+            "ROTATED" -> {
+                // Replay attack — wipe out every active session for this user.
+                repo.revokeAllValidForUser(entity.userId)
+                null
+            }
+            else -> null  // REVOKED
         }
-        val revokedOwner = rotated[token]
-        if (revokedOwner != null) {
-            revokeAllForUser(revokedOwner)
-        }
-        return null
     }
 
     fun revoke(token: String) {
-        val userId = valid.remove(token) ?: return
-        rotated[token] = userId
-    }
-
-    private fun revokeAllForUser(userId: String) {
-        valid.entries.removeIf { it.value == userId }
+        val entity = repo.findById(token).orElse(null) ?: return
+        if (entity.status == "VALID") {
+            entity.status = "REVOKED"
+            repo.save(entity)
+        }
     }
 }

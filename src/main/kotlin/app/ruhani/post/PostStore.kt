@@ -1,50 +1,57 @@
 package app.ruhani.post
 
 import app.ruhani.model.PostEntity
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentHashMap
+import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Component
-class PostStore {
-    private val posts = ConcurrentHashMap<String, PostEntity>()
-    private val deleted = ConcurrentHashMap<String, PostEntity>()
+@Transactional
+class PostStore(private val repo: PostRepository) {
 
-    fun findById(id: String): PostEntity? = posts[id]
+    @Transactional(readOnly = true)
+    fun findById(id: String): PostEntity? =
+        repo.findById(id).orElse(null)?.takeIf { it.deletedAt == null }
 
-    fun findDeleted(id: String): PostEntity? = deleted[id]
+    @Transactional(readOnly = true)
+    fun findDeleted(id: String): PostEntity? =
+        repo.findById(id).orElse(null)?.takeIf { it.deletedAt != null }
 
-    fun save(post: PostEntity): PostEntity {
-        posts[post.id] = post
-        return post
-    }
+    fun save(post: PostEntity): PostEntity = repo.save(post)
 
+    /** Soft-delete so the Undo flow can restore within the snackbar window. */
     fun delete(id: String) {
-        posts.remove(id)?.also { deleted[it.id] = it }
+        val post = repo.findById(id).orElse(null) ?: return
+        post.deletedAt = Instant.now()
+        repo.save(post)
     }
 
-    fun restore(id: String): PostEntity? =
-        deleted.remove(id)?.also { posts[it.id] = it }
+    fun restore(id: String): PostEntity? {
+        val post = repo.findById(id).orElse(null) ?: return null
+        if (post.deletedAt == null) return null
+        post.deletedAt = null
+        return repo.save(post)
+    }
 
+    @Transactional(readOnly = true)
     fun feed(
         cursor: String?,
         form: String?,
         lang: String?,
         pageSize: Int = 20,
-    ): Pair<List<PostEntity>, String?> = page(
-        cursor = cursor,
-        pageSize = pageSize,
-        candidates = posts.values
-            .filter { it.status == "PUBLISHED" }
-            .filter { form == null || it.form == form }
-            .filter { lang == null || it.languageCode == lang },
-    )
+    ): Pair<List<PostEntity>, String?> {
+        val cutoff = cursor?.toInstantOrNull()
+        // pageSize + 1 so we can tell whether there's another page without an extra count query.
+        val rows = repo.feedPage(cutoff, form, lang, PageRequest.of(0, pageSize + 1))
+        return paginate(rows, pageSize)
+    }
 
+    @Transactional(readOnly = true)
     fun byAuthor(authorId: String, status: String?): List<PostEntity> =
-        posts.values
-            .filter { it.authorId == authorId }
-            .filter { status == null || it.status == status }
-            .sortedByDescending { it.createdAt.toEpochMilli() }
+        repo.byAuthor(authorId, status)
 
+    @Transactional(readOnly = true)
     fun search(
         query: String,
         form: String?,
@@ -53,35 +60,17 @@ class PostStore {
         cursor: String?,
         pageSize: Int = 20,
     ): Pair<List<PostEntity>, String?> {
-        val q = query.lowercase()
-        return page(
-            cursor = cursor,
-            pageSize = pageSize,
-            candidates = posts.values
-                .filter { it.status == "PUBLISHED" }
-                .filter { form == null || it.form == form }
-                .filter { lang == null || it.languageCode == lang }
-                .filter { tag == null || it.tags.any { t -> t.equals(tag, ignoreCase = true) } }
-                .filter { post ->
-                    post.lines.any { line -> line.text.lowercase().contains(q) }
-                        || post.summary?.lowercase()?.contains(q) == true
-                        || post.tags.any { t -> t.lowercase().contains(q) }
-                },
-        )
+        val cutoff = cursor?.toInstantOrNull()
+        val rows = repo.search(query, form, lang, tag, cutoff, PageRequest.of(0, pageSize + 1))
+        return paginate(rows, pageSize)
     }
 
-    private fun page(
-        cursor: String?,
-        pageSize: Int,
-        candidates: Iterable<PostEntity>,
-    ): Pair<List<PostEntity>, String?> {
-        val cutoff = cursor?.toLongOrNull()
-        val sorted = candidates.sortedByDescending { it.createdAt.toEpochMilli() }
-        val slice = (if (cutoff == null) sorted
-        else sorted.filter { it.createdAt.toEpochMilli() < cutoff })
-            .take(pageSize + 1)
-        val hasMore = slice.size > pageSize
-        val result = if (hasMore) slice.dropLast(1) else slice
-        return result to if (hasMore) result.last().createdAt.toEpochMilli().toString() else null
+    private fun paginate(rows: List<PostEntity>, pageSize: Int): Pair<List<PostEntity>, String?> {
+        val hasMore = rows.size > pageSize
+        val page = if (hasMore) rows.dropLast(1) else rows
+        return page to if (hasMore) page.last().createdAt.toEpochMilli().toString() else null
     }
+
+    private fun String.toInstantOrNull(): Instant? =
+        toLongOrNull()?.let { Instant.ofEpochMilli(it) }
 }

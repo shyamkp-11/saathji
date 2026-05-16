@@ -1,55 +1,68 @@
 package app.ruhani.meaning
 
+import app.ruhani.model.MeaningUpvoteEntity
 import app.ruhani.model.WordEntryEntity
 import app.ruhani.model.WordMeaningEntity
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
-import java.util.Collections
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
+import org.springframework.transaction.annotation.Transactional
 
 @Component
-class MeaningStore {
-    private val entries = ConcurrentHashMap<String, WordEntryEntity>()         // id → entity
-    private val entryByKey = ConcurrentHashMap<String, String>()               // "norm::lang" → id
-    private val meanings = ConcurrentHashMap<String, WordMeaningEntity>()      // id → entity
-    private val meaningsByEntry = ConcurrentHashMap<String, MutableSet<String>>() // entryId → ids
+@Transactional
+class MeaningStore(
+    private val entries: WordEntryRepository,
+    private val meanings: WordMeaningRepository,
+    private val upvotes: MeaningUpvoteRepository,
+) {
 
     fun getOrCreateEntry(word: String, languageCode: String): WordEntryEntity {
         val normalized = word.lowercase()
-        val key = "$normalized::$languageCode"
-        val id = entryByKey.getOrPut(key) { UUID.randomUUID().toString() }
-        return entries.getOrPut(id) {
-            WordEntryEntity(id = id, normalizedForm = normalized, languageCode = languageCode)
+        entries.findByNormalizedFormAndLanguageCode(normalized, languageCode)?.let { return it }
+        // Concurrent inserts on the same (word, lang) race against the unique
+        // index — catch and re-read so callers always get a managed entity.
+        return try {
+            entries.save(WordEntryEntity(normalizedForm = normalized, languageCode = languageCode))
+        } catch (_: DataIntegrityViolationException) {
+            entries.findByNormalizedFormAndLanguageCode(normalized, languageCode)!!
         }
     }
 
-    fun findEntryByWord(word: String, languageCode: String): WordEntryEntity? {
-        val key = "${word.lowercase()}::$languageCode"
-        return entryByKey[key]?.let { entries[it] }
-    }
+    @Transactional(readOnly = true)
+    fun findEntryByWord(word: String, languageCode: String): WordEntryEntity? =
+        entries.findByNormalizedFormAndLanguageCode(word.lowercase(), languageCode)
 
+    @Transactional(readOnly = true)
     fun getMeanings(wordEntryId: String): List<WordMeaningEntity> =
-        (meaningsByEntry[wordEntryId] ?: emptySet())
-            .mapNotNull { meanings[it] }
-            .sortedByDescending { it.upvoteCount }
+        meanings.findByWordEntryIdOrderByUpvoteCountDesc(wordEntryId)
 
-    fun addMeaning(wordEntryId: String, text: String, authorId: String): WordMeaningEntity {
-        val meaning = WordMeaningEntity(wordEntryId = wordEntryId, text = text, authorId = authorId)
-        meanings[meaning.id] = meaning
-        meaningsByEntry
-            .getOrPut(wordEntryId) { Collections.newSetFromMap(ConcurrentHashMap()) }
-            .add(meaning.id)
-        return meaning
-    }
+    fun addMeaning(wordEntryId: String, text: String, authorId: String): WordMeaningEntity =
+        meanings.save(
+            WordMeaningEntity(wordEntryId = wordEntryId, text = text, authorId = authorId)
+        )
 
-    fun findMeaning(id: String): WordMeaningEntity? = meanings[id]
+    fun findMeaning(id: String): WordMeaningEntity? = meanings.findById(id).orElse(null)
 
+    /**
+     * Atomically flips the upvote state for (meaningId, userId) and adjusts the
+     * denormalized counter on word_meanings. Returns the post-toggle entity, or
+     * null if the meaning doesn't exist.
+     */
     fun toggleUpvote(meaningId: String, userId: String): WordMeaningEntity? {
-        val meaning = meanings[meaningId] ?: return null
-        synchronized(meaning) {
-            if (meaning.upvoterIds.add(userId)) meaning.upvoteCount++
-            else { meaning.upvoterIds.remove(userId); meaning.upvoteCount-- }
+        val meaning = meanings.findById(meaningId).orElse(null) ?: return null
+        val alreadyUpvoted = upvotes.existsByMeaningIdAndUserId(meaningId, userId)
+        if (alreadyUpvoted) {
+            upvotes.deleteOne(meaningId, userId)
+            meanings.adjustUpvoteCount(meaningId, -1)
+            meaning.upvoteCount -= 1
+        } else {
+            upvotes.save(MeaningUpvoteEntity(meaningId = meaningId, userId = userId))
+            meanings.adjustUpvoteCount(meaningId, 1)
+            meaning.upvoteCount += 1
         }
         return meaning
     }
+
+    @Transactional(readOnly = true)
+    fun hasUpvoted(meaningId: String, userId: String): Boolean =
+        upvotes.existsByMeaningIdAndUserId(meaningId, userId)
 }

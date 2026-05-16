@@ -6,6 +6,23 @@ spring:
     name: ruhani-backend
   jackson:
     default-property-inclusion: non_null
+  datasource:
+    url: "jdbc:mysql://${MYSQL_HOST:10.0.0.83}:${MYSQL_PORT:3306}/${MYSQL_DB:ruhani}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&useUnicode=true&connectionCollation=utf8mb4_unicode_ci"
+    username: "${MYSQL_USER:ruhani}"
+    password: "${MYSQL_PASSWORD:}"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate    # Flyway owns the schema; Hibernate only checks it matches.
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: "classpath:db/migration"
 
 ruhani:
   jwt:

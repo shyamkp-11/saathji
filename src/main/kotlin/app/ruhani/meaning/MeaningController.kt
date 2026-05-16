@@ -18,14 +18,18 @@ class MeaningController(private val meaningStore: MeaningStore) {
         auth: Authentication,
     ): WordMeaningDto {
         val entry = meaningStore.getOrCreateEntry(req.word, req.languageCode)
-        return meaningStore.addMeaning(entry.id, req.text, auth.name).toDto(auth.name)
+        val meaning = meaningStore.addMeaning(entry.id, req.text, auth.name)
+        // Author hasn't upvoted their own meaning yet.
+        return meaning.toDto(viewerUpvoted = false)
     }
 
     @PostMapping("/word-meanings/{id}/upvote/toggle")
     fun toggleUpvote(
         @PathVariable id: String,
         auth: Authentication,
-    ): WordMeaningDto =
-        meaningStore.toggleUpvote(id, auth.name)?.toDto(auth.name)
+    ): WordMeaningDto {
+        val meaning = meaningStore.toggleUpvote(id, auth.name)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        return meaning.toDto(viewerUpvoted = meaningStore.hasUpvoted(meaning.id, auth.name))
+    }
 }

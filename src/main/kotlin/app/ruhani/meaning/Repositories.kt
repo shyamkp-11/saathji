@@ -1,0 +1,34 @@
+package app.ruhani.meaning
+
+import app.ruhani.model.MeaningUpvoteEntity
+import app.ruhani.model.MeaningUpvoteId
+import app.ruhani.model.WordEntryEntity
+import app.ruhani.model.WordMeaningEntity
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
+import org.springframework.stereotype.Repository
+
+@Repository
+interface WordEntryRepository : JpaRepository<WordEntryEntity, String> {
+    fun findByNormalizedFormAndLanguageCode(normalizedForm: String, languageCode: String): WordEntryEntity?
+}
+
+@Repository
+interface WordMeaningRepository : JpaRepository<WordMeaningEntity, String> {
+    fun findByWordEntryIdOrderByUpvoteCountDesc(wordEntryId: String): List<WordMeaningEntity>
+
+    @Modifying
+    @Query("UPDATE WordMeaningEntity m SET m.upvoteCount = m.upvoteCount + :delta WHERE m.id = :id")
+    fun adjustUpvoteCount(@Param("id") id: String, @Param("delta") delta: Int): Int
+}
+
+@Repository
+interface MeaningUpvoteRepository : JpaRepository<MeaningUpvoteEntity, MeaningUpvoteId> {
+    fun existsByMeaningIdAndUserId(meaningId: String, userId: String): Boolean
+
+    @Modifying
+    @Query("DELETE FROM MeaningUpvoteEntity u WHERE u.meaningId = :meaningId AND u.userId = :userId")
+    fun deleteOne(@Param("meaningId") meaningId: String, @Param("userId") userId: String): Int
+}

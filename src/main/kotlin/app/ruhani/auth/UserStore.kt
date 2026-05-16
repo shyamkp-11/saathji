@@ -2,32 +2,32 @@ package app.ruhani.auth
 
 import app.ruhani.model.UserEntity
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentHashMap
+import org.springframework.transaction.annotation.Transactional
 
 @Component
-class UserStore {
-    private val byId = ConcurrentHashMap<String, UserEntity>()
-    private val byEmail = ConcurrentHashMap<String, String>()   // email (lower) → id
-    private val byHandle = ConcurrentHashMap<String, String>()  // handle (lower) → id
+@Transactional
+class UserStore(private val users: UserRepository) {
 
-    fun findById(id: String): UserEntity? = byId[id]
+    fun findById(id: String): UserEntity? = users.findById(id).orElse(null)
 
-    fun findByEmail(email: String): UserEntity? = byEmail[email.lowercase()]?.let { byId[it] }
+    @Transactional(readOnly = true)
+    fun findByEmail(email: String): UserEntity? = users.findByEmail(email.lowercase())
 
-    fun findByHandle(handle: String): UserEntity? = byHandle[handle.lowercase()]?.let { byId[it] }
+    @Transactional(readOnly = true)
+    fun findByHandle(handle: String): UserEntity? = users.findByHandle(handle.lowercase())
 
-    fun handleExists(handle: String): Boolean = byHandle.containsKey(handle.lowercase())
+    @Transactional(readOnly = true)
+    fun handleExists(handle: String): Boolean = users.existsByHandle(handle.lowercase())
 
     fun create(user: UserEntity): UserEntity {
-        byId[user.id] = user
-        byEmail[user.email.lowercase()] = user.id
-        return user
+        user.email = user.email.lowercase()
+        return users.save(user)
     }
 
     fun setProfile(id: String, handle: String, bio: String?) {
-        val user = byId[id] ?: return
-        user.handle = handle
+        val user = users.findById(id).orElse(null) ?: return
+        user.handle = handle.lowercase()
         user.bio = bio
-        byHandle[handle.lowercase()] = id
+        users.save(user)
     }
 }
