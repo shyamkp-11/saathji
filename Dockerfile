@@ -47,9 +47,12 @@ USER app
 # container's cgroup memory limit so we behave well under restricted memory.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
 
-EXPOSE $BACKEND_PORT
+# The JVM always listens on Spring's server.port (default 8080) INSIDE the
+# container. compose's `${BACKEND_PORT:-8080}:8080` mapping is what publishes
+# it to a different host port — that's a host-side concern, not the container's.
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=45s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:$BACKEND_PORT/actuator/health || exit 1
+    CMD wget --quiet --tries=1 --spider http://localhost:8080/actuator/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
