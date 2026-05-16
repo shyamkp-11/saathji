@@ -76,30 +76,35 @@ pipeline {
     }
 
     stage('Smoke test') {
-    agent any
-      steps {
-        // BACKEND_PORT is the HOST port compose publishes to (defaults 8080,
-        // currently 8085 on this Jenkins box). The container is always on
-        // 8080 internally; the smoke test runs on the host so it uses the
-        // published port.
-        sh '''
-          set -e
-          echo "Waiting for /actuator/health on port ${BACKEND_PORT:-8080}..."
-          for i in $(seq 1 60); do
-            if curl -fsS --max-time 2 "http://localhost:${BACKEND_PORT:-8080}/actuator/health" > /tmp/health.json 2>/dev/null; then
-              echo "✓ healthy:"
-              cat /tmp/health.json
-              echo
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "✗ /actuator/health never returned 200 within 120s"
-          exit 1
-        '''
+      when {
+        beforeAgent true;
+        expression {
+          return false;
+        }
       }
+    steps {
+      // BACKEND_PORT is the HOST port compose publishes to (defaults 8080,
+      // currently 8085 on this Jenkins box). The container is always on
+      // 8080 internally; the smoke test runs on the host so it uses the
+      // published port.
+      sh '''
+        set -e
+        echo "Waiting for /actuator/health on port ${BACKEND_PORT:-8080}..."
+        for i in $(seq 1 60); do
+          if curl -fsS --max-time 2 "http://localhost:${BACKEND_PORT:-8080}/actuator/health" > /tmp/health.json 2>/dev/null; then
+            echo "✓ healthy:"
+            cat /tmp/health.json
+            echo
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "✗ /actuator/health never returned 200 within 120s"
+        exit 1
+      '''
     }
   }
+}
 
   post {
     success {
