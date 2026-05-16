@@ -15,3 +15,10 @@ ruhani:
   otp:
     expiry-seconds: 600                # 10 minutes
     universal-bypass: "000000"         # testing shortcut — real OTPs are logged to stdout
+  email:
+    # 'log' (default) prints OTP to stdout; 'ses' sends via AWS SES v2.
+    provider: "${RUHANI_EMAIL_PROVIDER:log}"
+    # Verified SES sender; required only when provider=ses.
+    from: "${RUHANI_EMAIL_FROM:no-reply@ruhani.app}"
+  aws:
+    region: "${RUHANI_AWS_REGION:us-east-1}"

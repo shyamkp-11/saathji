@@ -13,11 +13,11 @@ class AuthService(
     private val otpStore: OtpStore,
     private val refreshTokenStore: RefreshTokenStore,
     private val jwtService: JwtService,
+    private val emailSender: EmailSender,
 ) {
     fun requestOtp(email: String) {
         val code = otpStore.generate(email)
-        // TODO: replace with AWS SES
-        println("[OTP] $email → $code")
+        emailSender.sendOtp(email, code)
     }
 
     fun verifyOtp(email: String, code: String): VerifyOtpResponse {

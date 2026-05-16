@@ -33,6 +33,10 @@ dependencies {
     // ICU4J — script transliteration (Latin / Devanagari / Gujarati)
     implementation("com.ibm.icu:icu4j:75.1")
 
+    // AWS SES v2 — OTP email delivery (only loaded when ruhani.email.provider=ses)
+    implementation(platform("software.amazon.awssdk:bom:2.29.0"))
+    implementation("software.amazon.awssdk:sesv2")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
 }
