@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ruhani-backend
+  jackson:
+    default-property-inclusion: non_null
+
+ruhani:
+  jwt:
+    # min 256 bits for HMAC-SHA; override via RUHANI_JWT_SECRET env var in production
+    secret: "${RUHANI_JWT_SECRET:ruhani-dev-secret-key-min-256-bits-change-in-prod!!}"
+    access-token-expiry-seconds: 900   # 15 minutes
+  otp:
+    expiry-seconds: 600                # 10 minutes
+    universal-bypass: "000000"         # testing shortcut — real OTPs are logged to stdout
