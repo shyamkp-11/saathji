@@ -19,6 +19,8 @@ interface WordEntryRepository : JpaRepository<WordEntryEntity, String> {
 interface WordMeaningRepository : JpaRepository<WordMeaningEntity, String> {
     fun findByWordEntryIdOrderByUpvoteCountDesc(wordEntryId: String): List<WordMeaningEntity>
 
+    fun findByAuthorIdOrderByCreatedAtDesc(authorId: String): List<WordMeaningEntity>
+
     @Modifying
     @Query("UPDATE WordMeaningEntity m SET m.upvoteCount = m.upvoteCount + :delta WHERE m.id = :id")
     fun adjustUpvoteCount(@Param("id") id: String, @Param("delta") delta: Int): Int
@@ -31,4 +33,8 @@ interface MeaningUpvoteRepository : JpaRepository<MeaningUpvoteEntity, MeaningUp
     @Modifying
     @Query("DELETE FROM MeaningUpvoteEntity u WHERE u.meaningId = :meaningId AND u.userId = :userId")
     fun deleteOne(@Param("meaningId") meaningId: String, @Param("userId") userId: String): Int
+
+    @Modifying
+    @Query("DELETE FROM MeaningUpvoteEntity u WHERE u.meaningId = :meaningId")
+    fun deleteByMeaningId(@Param("meaningId") meaningId: String): Int
 }

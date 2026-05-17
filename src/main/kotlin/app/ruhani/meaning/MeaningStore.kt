@@ -7,6 +7,11 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
+data class MeaningContribution(
+    val word: String,
+    val meaning: WordMeaningEntity,
+)
+
 @Component
 @Transactional
 class MeaningStore(
@@ -41,6 +46,18 @@ class MeaningStore(
         )
 
     fun findMeaning(id: String): WordMeaningEntity? = meanings.findById(id).orElse(null)
+
+    @Transactional(readOnly = true)
+    fun meaningsByAuthor(authorId: String): List<MeaningContribution> =
+        meanings.findByAuthorIdOrderByCreatedAtDesc(authorId).mapNotNull { meaning ->
+            val entry = entries.findById(meaning.wordEntryId).orElse(null) ?: return@mapNotNull null
+            MeaningContribution(word = entry.normalizedForm, meaning = meaning)
+        }
+
+    fun deleteMeaning(id: String) {
+        upvotes.deleteByMeaningId(id)
+        meanings.deleteById(id)
+    }
 
     /**
      * Atomically flips the upvote state for (meaningId, userId) and adjusts the

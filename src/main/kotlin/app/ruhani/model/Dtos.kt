@@ -119,6 +119,16 @@ data class WordMeaningDto(
     val viewerUpvoted: Boolean = false,
 )
 
+data class MeaningContributionDto(
+    val word: String,
+    val meaning: WordMeaningDto,
+)
+
+data class MeaningContributionsPageDto(
+    val items: List<MeaningContributionDto>,
+    val nextCursor: String? = null,
+)
+
 data class ContextualNoteDto(
     val id: String,
     val scope: String,

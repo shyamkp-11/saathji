@@ -1,6 +1,8 @@
 package app.ruhani.meaning
 
 import app.ruhani.model.AddMeaningRequest
+import app.ruhani.model.MeaningContributionDto
+import app.ruhani.model.MeaningContributionsPageDto
 import app.ruhani.model.WordMeaningDto
 import app.ruhani.model.toDto
 import org.springframework.http.HttpStatus
@@ -10,6 +12,26 @@ import org.springframework.web.server.ResponseStatusException
 
 @RestController
 class MeaningController(private val meaningStore: MeaningStore) {
+
+    @GetMapping("/authors/{authorId}/word-meanings")
+    fun meaningsByAuthor(
+        @PathVariable authorId: String,
+        auth: Authentication,
+    ): MeaningContributionsPageDto {
+        if (authorId != auth.name) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN)
+        }
+
+        val items = meaningStore.meaningsByAuthor(authorId).map { contribution ->
+            MeaningContributionDto(
+                word = contribution.word,
+                meaning = contribution.meaning.toDto(
+                    viewerUpvoted = meaningStore.hasUpvoted(contribution.meaning.id, auth.name)
+                ),
+            )
+        }
+        return MeaningContributionsPageDto(items = items)
+    }
 
     @PostMapping("/word-meanings")
     @ResponseStatus(HttpStatus.CREATED)
@@ -31,5 +53,19 @@ class MeaningController(private val meaningStore: MeaningStore) {
         val meaning = meaningStore.toggleUpvote(id, auth.name)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
         return meaning.toDto(viewerUpvoted = meaningStore.hasUpvoted(meaning.id, auth.name))
+    }
+
+    @DeleteMapping("/word-meanings/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteMeaning(
+        @PathVariable id: String,
+        auth: Authentication,
+    ) {
+        val meaning = meaningStore.findMeaning(id)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        if (meaning.authorId != auth.name) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN)
+        }
+        meaningStore.deleteMeaning(id)
     }
 }
