@@ -41,16 +41,18 @@ pipeline {
           env.MYSQL_PASSWORD    = props.MYSQL_PASSWORD
           env.RUHANI_JWT_SECRET = props.RUHANI_JWT_SECRET
           // Non-secret defaults — override via Jenkins env vars if needed.
-          env.MYSQL_HOST = "${env.MYSQL_HOST ?: '10.0.0.83'}"
-          env.MYSQL_PORT = "${env.MYSQL_PORT ?: '3306'}"
-          env.MYSQL_DB   = "${env.MYSQL_DB ?: 'ruhani'}"
-          env.MYSQL_USER = "${env.MYSQL_USER ?: 'ruhani'}"
+          env.MYSQL_HOST = "${props.MYSQL_HOST ?: '10.0.0.83'}"
+          env.MYSQL_PORT = "${props.MYSQL_PORT ?: '3306'}"
+          env.MYSQL_DB   = "${props.MYSQL_DB ?: 'ruhani'}"
+          env.MYSQL_USER = "${props.MYSQL_USER ?: 'ruhani'}"
           // OTP delivery — set RUHANI_EMAIL_PROVIDER=ses + AWS_* credentials in
           // Jenkins to enable real SES. Default `log` keeps things printing to stdout.
-          env.RUHANI_EMAIL_PROVIDER = "${env.RUHANI_EMAIL_PROVIDER ?: 'log'}"
-          env.RUHANI_EMAIL_FROM     = "${env.RUHANI_EMAIL_FROM ?: 'no-reply@saathji.com'}"
-          env.RUHANI_AWS_REGION     = "${env.RUHANI_AWS_REGION ?: 'us-east-2'}"
-          env.BACKEND_PORT = "${env.BACKEND_PORT ?: '8085'}"
+          env.RUHANI_EMAIL_PROVIDER = "${props.RUHANI_EMAIL_PROVIDER ?: 'log'}"
+          env.RUHANI_EMAIL_FROM     = "${props.RUHANI_EMAIL_FROM ?: 'no-reply@saathji.com'}"
+          env.RUHANI_AWS_REGION     = "${props.RUHANI_AWS_REGION ?: 'us-east-2'}"
+          env.AWS_ACCESS_KEY_ID="${props.AWS_ACCESS_KEY_ID ?: ''}"
+          env.AWS_SECRET_ACCESS_KEY="${props.AWS_SECRET_ACCESS_KEY ?: ''}"
+          env.BACKEND_PORT = "${props.BACKEND_PORT ?: '8085'}"
         }
       }
     }
