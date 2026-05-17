@@ -125,7 +125,7 @@ class TransliterationService {
             // drop → "krishn").
             val phoneticised = applyPhonetic(iast)
             val schwaDropped =
-                if (from == "Devanagari" || from == "Gujarati") dropWordFinalSchwa(phoneticised) else phoneticised
+                if (from == "Devanagari" || from == "Gujarati") dropSchwas(phoneticised) else phoneticised
             return latinToAscii.transliterate(schwaDropped)
         }
 
@@ -139,7 +139,20 @@ class TransliterationService {
         script.lowercase().replaceFirstChar { it.uppercase() }
 
     /**
-     * Drop a trailing 'a' (or 'A') from each word when:
+     * Apply Hindi/Gujarati schwa-deletion rules word by word: first the
+     * word-final schwa, then the iterative internal-schwa rule (Ohala 1983,
+     * generalised slightly per Tyson & Nagar).
+     */
+    private fun dropSchwas(text: String): String =
+        wordPattern.replace(text) { m -> dropSchwasInWord(m.value) }
+
+    private fun dropSchwasInWord(word: String): String {
+        val afterFinal = dropWordFinalSchwa(word)
+        return dropInternalSchwas(afterFinal)
+    }
+
+    /**
+     * Word-final 'a' (schwa) deletion. Drops the trailing 'a' (or 'A') when:
      *   - the word is ≥3 chars long (single-syllable words keep their schwa
      *     — "na" must stay "na" or it becomes unpronounceable);
      *   - the preceding char isn't itself a vowel (we're not breaking a
@@ -147,20 +160,69 @@ class TransliterationService {
      *   - the rest of the word has at least one other vowel (so we don't
      *     turn an all-consonant cluster + schwa into just consonants).
      */
-    private fun dropWordFinalSchwa(text: String): String =
-        wordPattern.replace(text) { m ->
-            val w = m.value
-            if (
-                w.length >= 3 &&
-                (w.last() == 'a' || w.last() == 'A') &&
-                w[w.length - 2] !in vowels &&
-                w.dropLast(1).any { it in vowels }
-            ) {
-                w.dropLast(1)
-            } else {
-                w
-            }
+    private fun dropWordFinalSchwa(w: String): String =
+        if (
+            w.length >= 3 &&
+            (w.last() == 'a' || w.last() == 'A') &&
+            w[w.length - 2] !in vowels &&
+            w.dropLast(1).any { it in vowels }
+        ) {
+            w.dropLast(1)
+        } else {
+            w
         }
+
+    /**
+     * Iterative right-to-left internal schwa deletion (Ohala 1983).
+     * For each schwa 'a' that's not at position 0 and not word-final, drop
+     * it when the pattern   `…VCəCV…`   holds:
+     *   - immediately after the schwa: a consonant followed by a vowel
+     *   - immediately before the schwa: a single consonant preceded by a vowel
+     *
+     * Right-to-left order matters: dropping the rightmost eligible schwa
+     * first lets later (left-side) schwas "see" the surviving structure.
+     * Each pass deletes at most one char, so we just decrement the cursor
+     * and continue scanning leftward.
+     *
+     *   नमकीन  "namakīn"  →  schwa@3 (am __ kī) → "namkīn"
+     *   सरकार  "sarakār"  →  schwa@3 (ar __ kā) → "sarkār"
+     *   व्यवहार "vyavahār" →  schwa@4 (av __ hā) → "vyavhār"
+     *   नमक    "namak"    →  no drop  (left schwa@1 has "n" before, no V)
+     *   ज़िंदगी "zindagī"  →  no drop  (schwa@4 has "nd" before — VCC,
+     *                         not VC — so the rule deliberately doesn't fire)
+     *
+     * Known limitation: VCCəCV cases like सन्तरा ("santarā" → ideally
+     * "santra") aren't dropped because IAST collapses halant-suppressed
+     * consonants and anusvara-derived nasals into the same surface form
+     * (both produce a plain "n" before the next stop). Distinguishing
+     * them would require parsing the original Devanagari source for the
+     * halant U+094D marker. Left as a TODO; staging-screen edits cover
+     * these outliers.
+     */
+    private fun dropInternalSchwas(word: String): String {
+        if (word.length < 5) return word    // need at least V C ə C V
+        var s = word
+        var i = s.length - 3                // last position with room for "C V" after
+        while (i >= 2) {                    // need at least "V C" before → index 2 is the earliest
+            val c = s[i]
+            if (c == 'a' || c == 'A') {
+                val vBefore = s[i - 2]
+                val cBefore = s[i - 1]
+                val cAfter  = s[i + 1]
+                val vAfter  = s[i + 2]
+                if (
+                    vBefore in vowels &&    // V at i-2
+                    cBefore !in vowels &&   // single C at i-1
+                    cAfter !in vowels &&    // C at i+1
+                    vAfter in vowels        // V at i+2
+                ) {
+                    s = s.substring(0, i) + s.substring(i + 1)
+                }
+            }
+            i--
+        }
+        return s
+    }
 
     private fun applyPhonetic(text: String): String {
         // First fix the multi-codepoint sequences ICU emits (vocalic r̥, l̥);
