@@ -62,9 +62,12 @@ data class PostDto(
     val id: String,
     val authorId: String,
     val poetId: String? = null,
+    val parentPostId: String? = null,
+    val version: Int = 1,
     val languageCode: String,
     val form: String,
     val tags: List<String> = emptyList(),
+    /** DRAFT | PUBLISHED | SUPERSEDED — SUPERSEDED means a newer version replaced it. */
     val status: String,
     val createdAt: String,
     val publishedAt: String? = null,

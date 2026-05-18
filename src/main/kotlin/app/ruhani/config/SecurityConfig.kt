@@ -44,6 +44,11 @@ class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    // Spring's BasicErrorController forwards to /error to render
+                    // ResponseStatusException bodies — that internal dispatch
+                    // hits the filter chain again, so it has to be permitAll
+                    // or every 4xx becomes a 401.
+                    .requestMatchers("/error").permitAll()
                     .requestMatchers("/auth/**").permitAll()
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()

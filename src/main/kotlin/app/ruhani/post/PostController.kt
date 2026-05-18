@@ -102,7 +102,33 @@ class PostController(
         if (post.authorId != auth.name) throw ResponseStatusException(HttpStatus.FORBIDDEN)
         post.status = "PUBLISHED"
         post.publishedAt = Instant.now()
-        return postStore.save(post).toDto()
+        val saved = postStore.save(post)
+        // Edit publish: demote the previous version so the feed shows only the latest.
+        post.parentPostId?.let { postStore.markSuperseded(it) }
+        return saved.toDto()
+    }
+
+    /**
+     * Snapshot a published post into a fresh DRAFT row so the author can
+     * edit it without affecting the live version. The new row's
+     * `parent_post_id` points back at [id]; publishing it later supersedes
+     * the parent (see [publish]).
+     *
+     * Refuses on non-published posts (drafts are already editable in place;
+     * superseded versions shouldn't be branched from).
+     */
+    @PostMapping("/posts/{id}/edit")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun startEdit(@PathVariable id: String, auth: Authentication): PostDto {
+        val source = postStore.findById(id) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        if (source.authorId != auth.name) throw ResponseStatusException(HttpStatus.FORBIDDEN)
+        if (source.status != "PUBLISHED") {
+            throw ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Only published posts can be edited (status was ${source.status})"
+            )
+        }
+        return postStore.snapshot(source).toDto()
     }
 
     @DeleteMapping("/posts/{id}")

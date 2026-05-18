@@ -62,6 +62,14 @@ class PostEntity(
     @Column(name = "poet_id", length = 36)
     var poetId: String? = null,
 
+    /** Previous version in this post's edit chain. Null for the original draft. */
+    @Column(name = "parent_post_id", length = 36)
+    var parentPostId: String? = null,
+
+    /** 1 for the original, incremented on each edit. */
+    @Column(nullable = false)
+    var version: Int = 1,
+
     @Column(name = "language_code", nullable = false, length = 16)
     var languageCode: String = "",
 
