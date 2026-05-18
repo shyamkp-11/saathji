@@ -17,20 +17,17 @@ interface PostListRepository : JpaRepository<PostListEntity, String> {
     fun findBySlug(slug: String): PostListEntity?
     fun existsBySlug(slug: String): Boolean
 
-    /**
-     * Public browse: PUBLISHED only, paged by publishedAt cursor (descending).
-     */
+    /** Public browse, paged by createdAt cursor (descending). */
     @Query(
         """
         SELECT l FROM PostListEntity l
-        WHERE l.status = 'PUBLISHED'
-          AND (:cursor IS NULL OR l.publishedAt < :cursor)
-        ORDER BY l.publishedAt DESC
+        WHERE (:cursor IS NULL OR l.createdAt < :cursor)
+        ORDER BY l.createdAt DESC
         """
     )
-    fun publishedPage(@Param("cursor") cursor: Instant?, pageable: Pageable): List<PostListEntity>
+    fun browsePage(@Param("cursor") cursor: Instant?, pageable: Pageable): List<PostListEntity>
 
-    /** Editor's own view: includes both DRAFT and PUBLISHED, newest first. */
+    /** Editor's own view, newest first. */
     @Query("SELECT l FROM PostListEntity l WHERE l.editorId = :editorId ORDER BY l.createdAt DESC")
     fun byEditor(@Param("editorId") editorId: String): List<PostListEntity>
 }

@@ -54,6 +54,7 @@ class PostStore(private val repo: PostRepository) {
             version = source.version + 1,
             languageCode = source.languageCode,
             form = source.form,
+            title = source.title,
             status = "DRAFT",
             summary = source.summary,
         )

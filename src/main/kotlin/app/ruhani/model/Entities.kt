@@ -42,9 +42,14 @@ class UserEntity(
     @Column(length = 500)
     var bio: String? = null,
 
-    /** Granted out-of-band via SQL UPDATE. Editors can create + manage lists. */
-    @Column(name = "is_moderator", nullable = false)
-    var isModerator: Boolean = false,
+    /**
+     * USER | EDITOR | ADMIN. Granted out-of-band via SQL UPDATE for v1.
+     *   - USER:   default; can post + comment.
+     *   - EDITOR: can also create + manage editorial lists.
+     *   - ADMIN:  reserved. Treated as EDITOR for v1; extra perms come later.
+     */
+    @Column(name = "role", nullable = false, length = 16)
+    var role: String = "USER",
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
@@ -79,6 +84,10 @@ class PostEntity(
 
     @Column(nullable = false, length = 32)
     var form: String = "",
+
+    /** Optional headline for the post. Set on staging. */
+    @Column(length = 255)
+    var title: String? = null,
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "post_tags", joinColumns = [JoinColumn(name = "post_id")])
@@ -280,17 +289,11 @@ class PostListEntity(
     @Column(length = 1000)
     var description: String? = null,
 
-    @Column(nullable = false, length = 16)
-    var status: String = "DRAFT",   // DRAFT | PUBLISHED
-
     @Column(name = "editor_id", nullable = false, length = 36)
     var editorId: String = "",
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
-
-    @Column(name = "published_at")
-    var publishedAt: Instant? = null,
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now(),

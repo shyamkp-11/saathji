@@ -78,6 +78,7 @@ class PostController(
         if (post.authorId != auth.name) throw ResponseStatusException(HttpStatus.FORBIDDEN)
         if (post.editsLocked) throw ResponseStatusException(HttpStatus.CONFLICT, "Edits locked after community meanings exist")
 
+        post.title = req.title?.trim()?.takeIf { it.isNotEmpty() }
         post.summary = req.summary
         post.tags.clear()
         post.tags.addAll(req.tags)

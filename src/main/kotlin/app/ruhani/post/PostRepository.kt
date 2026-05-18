@@ -64,6 +64,7 @@ interface PostRepository : JpaRepository<PostEntity, String> {
           AND (:tag      IS NULL OR LOWER(t)       = LOWER(:tag))
           AND (LOWER(l.text)    LIKE LOWER(CONCAT('%', :q, '%'))
             OR LOWER(p.summary) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(p.title)   LIKE LOWER(CONCAT('%', :q, '%'))
             OR LOWER(t)         LIKE LOWER(CONCAT('%', :q, '%')))
         ORDER BY p.createdAt DESC
         """

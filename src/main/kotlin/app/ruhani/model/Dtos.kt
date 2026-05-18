@@ -33,7 +33,8 @@ data class UserDto(
     val email: String,
     val handle: String,
     val bio: String?,
-    val isModerator: Boolean = false,
+    /** USER | EDITOR | ADMIN. */
+    val role: String = "USER",
     val createdAt: String,
 )
 
@@ -55,6 +56,7 @@ data class StagedLineDto(
 
 data class UpdateStagingRequest(
     val lines: List<StagedLineDto>,
+    val title: String? = null,
     val summary: String? = null,
     val tags: List<String> = emptyList(),
 )
@@ -67,6 +69,7 @@ data class PostDto(
     val version: Int = 1,
     val languageCode: String,
     val form: String,
+    val title: String? = null,
     val tags: List<String> = emptyList(),
     /** DRAFT | PUBLISHED | SUPERSEDED — SUPERSEDED means a newer version replaced it. */
     val status: String,
@@ -185,12 +188,10 @@ data class PostListSummaryDto(
     val slug: String,
     val title: String,
     val description: String? = null,
-    val status: String,            // DRAFT | PUBLISHED
     val editorId: String,
     val editorHandle: String,
     val itemCount: Int,
     val createdAt: String,
-    val publishedAt: String? = null,
 )
 
 /**
@@ -203,11 +204,9 @@ data class PostListDto(
     val slug: String,
     val title: String,
     val description: String? = null,
-    val status: String,
     val editorId: String,
     val editorHandle: String,
     val createdAt: String,
-    val publishedAt: String? = null,
     val items: List<FeedItemDto> = emptyList(),
 )
 

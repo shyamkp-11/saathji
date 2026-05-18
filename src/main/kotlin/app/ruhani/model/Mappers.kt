@@ -5,7 +5,7 @@ fun UserEntity.toDto() = UserDto(
     email = email,
     handle = handle ?: "",
     bio = bio,
-    isModerator = isModerator,
+    role = role,
     createdAt = createdAt.toString(),
 )
 
@@ -17,6 +17,7 @@ fun PostEntity.toDto() = PostDto(
     version = version,
     languageCode = languageCode,
     form = form,
+    title = title,
     tags = tags.toList(),
     status = status,
     createdAt = createdAt.toString(),

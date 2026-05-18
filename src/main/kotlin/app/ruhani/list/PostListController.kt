@@ -10,6 +10,7 @@ import app.ruhani.model.PostListsPageDto
 import app.ruhani.model.ReorderListRequest
 import app.ruhani.model.UpdatePostListRequest
 import app.ruhani.model.PostListEntity
+import app.ruhani.model.canCurate
 import app.ruhani.model.toDto
 import app.ruhani.post.PostStore
 import org.springframework.http.HttpStatus
@@ -18,21 +19,19 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 
 /**
- * Editorial lists of posts. Curated and ordered by users flagged as
- * moderators (users.is_moderator). Anyone can read PUBLISHED lists;
- * DRAFTs are visible only to their editor.
+ * Editorial lists of posts. Curated and ordered by users with role
+ * EDITOR or ADMIN. Every list is public from creation — no draft lifecycle.
  *
  * Endpoint map:
- *   GET    /lists                   public browse (PUBLISHED only)
+ *   GET    /lists                   public browse
  *   GET    /lists/{slug}            single list + items
- *   POST   /lists                   create (moderator) → DRAFT
- *   PUT    /lists/{slug}            update metadata (moderator + owner)
- *   POST   /lists/{slug}/publish    flip to PUBLISHED
+ *   POST   /lists                   create (editor)
+ *   PUT    /lists/{slug}            update metadata (editor + owner)
  *   DELETE /lists/{slug}            remove
  *   POST   /lists/{slug}/items      add a post to the end
  *   DELETE /lists/{slug}/items/{postId}
  *   PUT    /lists/{slug}/items/order   reorder (full ordered postId list)
- *   GET    /me/lists                editor's own lists (DRAFT + PUBLISHED)
+ *   GET    /me/lists                editor's own lists
  */
 @RestController
 class PostListController(
@@ -45,20 +44,14 @@ class PostListController(
 
     @GetMapping("/lists")
     fun browse(@RequestParam cursor: String?): PostListsPageDto {
-        val (rows, next) = store.publishedPage(cursor)
+        val (rows, next) = store.browsePage(cursor)
         return PostListsPageDto(items = rows.map { it.toSummary() }, nextCursor = next)
     }
 
     @GetMapping("/lists/{slug}")
-    fun read(@PathVariable slug: String, auth: Authentication?): PostListDto {
-        val list = store.findBySlug(slug)
+    fun read(@PathVariable slug: String): PostListDto =
+        store.findBySlug(slug)?.toFull()
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
-        // DRAFTs are private to their editor; everyone sees PUBLISHED.
-        if (list.status == "DRAFT" && auth?.name != list.editorId) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND)
-        }
-        return list.toFull()
-    }
 
     /** Editor's own lists (any status). */
     @GetMapping("/me/lists")
@@ -85,12 +78,6 @@ class PostListController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "title is required")
         }
         return store.updateMetadata(list, req.title.trim(), req.description?.trim()).toSummary()
-    }
-
-    @PostMapping("/lists/{slug}/publish")
-    fun publish(@PathVariable slug: String, auth: Authentication): PostListSummaryDto {
-        val list = requireOwnedList(slug, auth)
-        return store.publish(list).toSummary()
     }
 
     @DeleteMapping("/lists/{slug}")
@@ -145,8 +132,8 @@ class PostListController(
     private fun requireModerator(auth: Authentication) {
         val user = userStore.findById(auth.name)
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED)
-        if (!user.isModerator) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "moderator role required")
+        if (!user.canCurate()) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "editor role required")
         }
     }
 
@@ -167,12 +154,10 @@ class PostListController(
             slug = slug,
             title = title,
             description = description,
-            status = status,
             editorId = editorId,
             editorHandle = editorHandle,
             itemCount = store.itemCount(id).toInt(),
             createdAt = createdAt.toString(),
-            publishedAt = publishedAt?.toString(),
         )
     }
 
@@ -188,11 +173,9 @@ class PostListController(
             slug = slug,
             title = title,
             description = description,
-            status = status,
             editorId = editorId,
             editorHandle = editorHandle,
             createdAt = createdAt.toString(),
-            publishedAt = publishedAt?.toString(),
             items = items,
         )
     }

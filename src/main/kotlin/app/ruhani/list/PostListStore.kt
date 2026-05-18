@@ -24,14 +24,12 @@ class PostListStore(
     fun findBySlug(slug: String): PostListEntity? = lists.findBySlug(slug)
 
     @Transactional(readOnly = true)
-    fun publishedPage(cursor: String?, pageSize: Int = 20): Pair<List<PostListEntity>, String?> {
+    fun browsePage(cursor: String?, pageSize: Int = 20): Pair<List<PostListEntity>, String?> {
         val cutoff = cursor?.toLongOrNull()?.let { Instant.ofEpochMilli(it) }
-        val rows = lists.publishedPage(cutoff, PageRequest.of(0, pageSize + 1))
+        val rows = lists.browsePage(cutoff, PageRequest.of(0, pageSize + 1))
         val hasMore = rows.size > pageSize
         val page = if (hasMore) rows.dropLast(1) else rows
-        val nextCursor = if (hasMore) {
-            page.last().publishedAt?.toEpochMilli()?.toString()
-        } else null
+        val nextCursor = if (hasMore) page.last().createdAt.toEpochMilli().toString() else null
         return page to nextCursor
     }
 
@@ -53,7 +51,6 @@ class PostListStore(
             slug = slug,
             title = title,
             description = description,
-            status = "DRAFT",
             editorId = editorId,
         )
         return lists.save(list)
@@ -62,15 +59,6 @@ class PostListStore(
     fun updateMetadata(list: PostListEntity, title: String, description: String?): PostListEntity {
         list.title = title
         list.description = description
-        list.updatedAt = Instant.now()
-        return lists.save(list)
-    }
-
-    fun publish(list: PostListEntity): PostListEntity {
-        if (list.status != "PUBLISHED") {
-            list.status = "PUBLISHED"
-            list.publishedAt = Instant.now()
-        }
         list.updatedAt = Instant.now()
         return lists.save(list)
     }
