@@ -2,13 +2,13 @@
 //
 // What it does:
 //   1. Build the Docker image via the multi-stage Dockerfile.
-//   2. Bring up `docker-compose up -d` on the Jenkins box itself.
+//   2. Bring up `docker compose up -d` on the Jenkins box itself.
 //   3. Poll /actuator/health until it returns 200 — fail the build if not.
 //   4. On any failure, dump the last 100 lines of container logs.
 //
 // What it expects on the Jenkins agent:
-//   - Docker + the `docker-compose` plugin
-//   - The jenkins user is in the `docker` group (so `docker-compose` doesn't need sudo)
+//   - Docker + the `docker compose` plugin
+//   - The jenkins user is in the `docker` group (so `docker compose` doesn't need sudo)
 //   - Two Jenkins "Secret text" credentials:
 //       ruhani-mysql-password  → the password for MySQL_USER (default `ruhani`)
 //       ruhani-jwt-secret      → ≥32-byte HMAC secret
@@ -64,7 +64,7 @@ pipeline {
         }
       }
       steps {
-        sh 'docker-compose build --pull'
+        sh 'docker compose build --pull'
       }
     }
 
@@ -73,7 +73,7 @@ pipeline {
         // `up -d` recreates the container only if its config / image changed,
         // so unchanged deploys are no-ops. `--remove-orphans` cleans up any
         // service that was removed from compose.yml.
-        sh 'docker-compose up -d --remove-orphans'
+        sh 'docker compose up -d --remove-orphans'
       }
     }
 
@@ -110,12 +110,12 @@ pipeline {
 
   post {
     success {
-      sh 'docker-compose ps'
+      sh 'docker compose ps'
     }
     failure {
       // Print logs so the cause of the failed deploy is visible in the build page.
-      sh 'docker-compose logs --tail=100 || true'
-      sh 'docker-compose ps || true'
+      sh 'docker compose logs --tail=100 || true'
+      sh 'docker compose ps || true'
     }
   }
 }
