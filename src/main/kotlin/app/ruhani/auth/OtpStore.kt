@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class OtpStore(
     @Value("\${ruhani.otp.expiry-seconds}") private val expirySeconds: Long,
-    @Value("\${ruhani.otp.universal-bypass}") private val universalBypass: String,
 ) {
     private data class Entry(val code: String, val expiresAt: Instant)
 
@@ -24,7 +23,6 @@ class OtpStore(
     }
 
     fun verify(email: String, code: String): Boolean {
-        if (code == universalBypass) return true
         val key = email.lowercase()
         val entry = entries[key] ?: return false
         if (Instant.now().isAfter(entry.expiresAt)) {

@@ -38,7 +38,6 @@ ruhani:
     access-token-expiry-seconds: 900   # 15 minutes
   otp:
     expiry-seconds: 600                # 10 minutes
-    universal-bypass: "000000"         # testing shortcut — real OTPs are logged to stdout
   email:
     # 'log' (default) prints OTP to stdout; 'ses' sends via AWS SES v2.
     provider: "${RUHANI_EMAIL_PROVIDER:log}"

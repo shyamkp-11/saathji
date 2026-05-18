@@ -17,8 +17,7 @@ import software.amazon.awssdk.services.sesv2.model.SendEmailRequest
  *
  * Two implementations live behind one property:
  *   - `ruhani.email.provider=log`  (default, dev) → [LoggingEmailSender]
- *     prints the code to stdout. Combined with the `000000` universal
- *     bypass, this keeps local development unblocked without needing AWS.
+ *     prints the code to stdout so local development works without AWS.
  *   - `ruhani.email.provider=ses`  (production) → [SesEmailSender] sends
  *     via AWS SES v2, using the default credential chain.
  */
