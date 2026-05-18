@@ -54,6 +54,9 @@ class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
                     .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/search").permitAll()
                     .requestMatchers(HttpMethod.GET, "/authors/*/posts").permitAll()
+                    // Lists are public to browse / read; mutating endpoints
+                    // (POST/PUT/DELETE under /lists) still require a JWT.
+                    .requestMatchers(HttpMethod.GET, "/lists", "/lists/*").permitAll()
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)

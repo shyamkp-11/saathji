@@ -5,6 +5,7 @@ fun UserEntity.toDto() = UserDto(
     email = email,
     handle = handle ?: "",
     bio = bio,
+    isModerator = isModerator,
     createdAt = createdAt.toString(),
 )
 

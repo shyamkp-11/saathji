@@ -42,6 +42,10 @@ class UserEntity(
     @Column(length = 500)
     var bio: String? = null,
 
+    /** Granted out-of-band via SQL UPDATE. Editors can create + manage lists. */
+    @Column(name = "is_moderator", nullable = false)
+    var isModerator: Boolean = false,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 ) {
@@ -255,6 +259,67 @@ class BookmarkEntity(
 
 data class BookmarkId(
     var userId: String = "",
+    var postId: String = "",
+) : Serializable
+
+// ── Lists (editorial collections of posts) ───────────────────────────────────
+
+@Entity
+@Table(name = "lists")
+class PostListEntity(
+    @Id
+    @Column(length = 36)
+    var id: String = UUID.randomUUID().toString(),
+
+    @Column(nullable = false, length = 128)
+    var slug: String = "",
+
+    @Column(nullable = false, length = 255)
+    var title: String = "",
+
+    @Column(length = 1000)
+    var description: String? = null,
+
+    @Column(nullable = false, length = 16)
+    var status: String = "DRAFT",   // DRAFT | PUBLISHED
+
+    @Column(name = "editor_id", nullable = false, length = 36)
+    var editorId: String = "",
+
+    @Column(name = "created_at", nullable = false)
+    var createdAt: Instant = Instant.now(),
+
+    @Column(name = "published_at")
+    var publishedAt: Instant? = null,
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+) {
+    override fun equals(other: Any?) = other is PostListEntity && id == other.id
+    override fun hashCode() = id.hashCode()
+}
+
+@Entity
+@Table(name = "list_items")
+@IdClass(ListItemId::class)
+class ListItemEntity(
+    @Id
+    @Column(name = "list_id", length = 36)
+    var listId: String = "",
+
+    @Id
+    @Column(name = "post_id", length = 36)
+    var postId: String = "",
+
+    @Column(nullable = false)
+    var ordinal: Int = 0,
+
+    @Column(name = "added_at", nullable = false)
+    var addedAt: Instant = Instant.now(),
+)
+
+data class ListItemId(
+    var listId: String = "",
     var postId: String = "",
 ) : Serializable
 

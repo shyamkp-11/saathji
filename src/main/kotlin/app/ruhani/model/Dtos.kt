@@ -33,6 +33,7 @@ data class UserDto(
     val email: String,
     val handle: String,
     val bio: String?,
+    val isModerator: Boolean = false,
     val createdAt: String,
 )
 
@@ -171,4 +172,63 @@ data class TransliterateBatchRequest(
 
 data class TransliterateBatchResponse(
     val results: List<TransliterateResponse>,
+)
+
+// ── Lists ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Lightweight list metadata for the browse screen. No items — fetch those
+ * via GET /lists/{slug} when the user opens the detail.
+ */
+data class PostListSummaryDto(
+    val id: String,
+    val slug: String,
+    val title: String,
+    val description: String? = null,
+    val status: String,            // DRAFT | PUBLISHED
+    val editorId: String,
+    val editorHandle: String,
+    val itemCount: Int,
+    val createdAt: String,
+    val publishedAt: String? = null,
+)
+
+/**
+ * Full list payload with ordered posts + the resolved editor handle. Items
+ * carry the same FeedItem shape used everywhere else so PostCard re-renders
+ * with no extra mapper.
+ */
+data class PostListDto(
+    val id: String,
+    val slug: String,
+    val title: String,
+    val description: String? = null,
+    val status: String,
+    val editorId: String,
+    val editorHandle: String,
+    val createdAt: String,
+    val publishedAt: String? = null,
+    val items: List<FeedItemDto> = emptyList(),
+)
+
+data class CreatePostListRequest(
+    val title: String,
+    val description: String? = null,
+    /** Optional explicit slug; otherwise derived from title. */
+    val slug: String? = null,
+)
+
+data class UpdatePostListRequest(
+    val title: String,
+    val description: String? = null,
+)
+
+data class AddListItemRequest(val postId: String)
+
+/** Full ordered list of postIds — replaces the existing ordinals atomically. */
+data class ReorderListRequest(val postIds: List<String>)
+
+data class PostListsPageDto(
+    val items: List<PostListSummaryDto>,
+    val nextCursor: String? = null,
 )
