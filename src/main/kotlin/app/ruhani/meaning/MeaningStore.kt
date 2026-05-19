@@ -21,7 +21,7 @@ class MeaningStore(
 ) {
 
     fun getOrCreateEntry(word: String, languageCode: String): WordEntryEntity {
-        val normalized = word.lowercase()
+        val normalized = WordNormalizer.canonicalize(word, languageCode)
         entries.findByNormalizedFormAndLanguageCode(normalized, languageCode)?.let { return it }
         // Concurrent inserts on the same (word, lang) race against the unique
         // index — catch and re-read so callers always get a managed entity.
@@ -34,7 +34,10 @@ class MeaningStore(
 
     @Transactional(readOnly = true)
     fun findEntryByWord(word: String, languageCode: String): WordEntryEntity? =
-        entries.findByNormalizedFormAndLanguageCode(word.lowercase(), languageCode)
+        entries.findByNormalizedFormAndLanguageCode(
+            WordNormalizer.canonicalize(word, languageCode),
+            languageCode,
+        )
 
     @Transactional(readOnly = true)
     fun getMeanings(wordEntryId: String): List<WordMeaningEntity> =
