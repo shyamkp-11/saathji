@@ -2,7 +2,6 @@ package app.ruhani.post
 
 import app.ruhani.auth.UserStore
 import app.ruhani.meaning.MeaningStore
-import app.ruhani.meaning.WordNormalizer
 import app.ruhani.model.*
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.Authentication
@@ -73,9 +72,11 @@ class PostController(
             .forEachIndexed { lineIdx, lineText ->
                 val line = LineEntity(postId = post.id, ordinal = lineIdx, text = lineText.trim())
                 lineText.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-                    .map { WordNormalizer.stripBoundaryPunctuation(it) }
-                    .filter { it.isNotEmpty() }
                     .forEachIndexed { wordIdx, word ->
+                        // text keeps the author's surface form (so commas
+                        // and dandas still show in PostDetail); the
+                        // WordEntry lookup canonicalises internally so
+                        // "से" and "से," resolve to the same meanings.
                         val entry = meaningStore.getOrCreateEntry(word, req.languageCode)
                         line.tokens.add(TokenEntity(lineId = line.id, ordinal = wordIdx, text = word, wordEntryId = entry.id))
                     }
@@ -104,13 +105,13 @@ class PostController(
             val line = LineEntity(postId = post.id, ordinal = idx, text = dto.text)
             line.transliterations.putAll(dto.transliterations)
             line.summary = dto.summary
-            dto.tokenTexts
-                .map { WordNormalizer.stripBoundaryPunctuation(it) }
-                .filter { it.isNotEmpty() }
-                .forEachIndexed { tokenIdx, tokenText ->
-                    val entry = meaningStore.getOrCreateEntry(tokenText, post.languageCode)
-                    line.tokens.add(TokenEntity(lineId = line.id, ordinal = tokenIdx, text = tokenText, wordEntryId = entry.id))
-                }
+            dto.tokenTexts.forEachIndexed { tokenIdx, tokenText ->
+                // Preserve the author's tokenisation verbatim; the
+                // WordEntry lookup strips punctuation internally so
+                // shared meanings still work.
+                val entry = meaningStore.getOrCreateEntry(tokenText, post.languageCode)
+                line.tokens.add(TokenEntity(lineId = line.id, ordinal = tokenIdx, text = tokenText, wordEntryId = entry.id))
+            }
             post.lines.add(line)
         }
         return postStore.save(post).toDto()
