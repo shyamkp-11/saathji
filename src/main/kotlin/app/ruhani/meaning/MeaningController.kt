@@ -3,6 +3,7 @@ package app.ruhani.meaning
 import app.ruhani.model.AddMeaningRequest
 import app.ruhani.model.MeaningContributionDto
 import app.ruhani.model.MeaningContributionsPageDto
+import app.ruhani.model.MeaningsBundleDto
 import app.ruhani.model.WordMeaningDto
 import app.ruhani.model.toDto
 import org.springframework.http.HttpStatus
@@ -12,6 +13,30 @@ import org.springframework.web.server.ResponseStatusException
 
 @RestController
 class MeaningController(private val meaningStore: MeaningStore) {
+
+    /**
+     * Look up all meanings for a (word, language) pair regardless of post
+     * context. Powers the dictionary-builder screen so users can add
+     * meanings to any word without first finding a post that uses it.
+     * Anon-readable like the per-post variant.
+     */
+    @GetMapping("/word-meanings")
+    fun getByWord(
+        @RequestParam word: String,
+        @RequestParam lang: String,
+        auth: Authentication?,
+    ): MeaningsBundleDto {
+        val entry = meaningStore.findEntryByWord(word, lang)
+        val list = entry?.let { meaningStore.getMeanings(it.id) } ?: emptyList()
+        val viewerId = auth?.name
+        return MeaningsBundleDto(
+            word = word,
+            languageCode = lang,
+            wordMeanings = list.map { m ->
+                m.toDto(viewerUpvoted = viewerId != null && meaningStore.hasUpvoted(m.id, viewerId))
+            },
+        )
+    }
 
     @GetMapping("/authors/{authorId}/word-meanings")
     fun meaningsByAuthor(
