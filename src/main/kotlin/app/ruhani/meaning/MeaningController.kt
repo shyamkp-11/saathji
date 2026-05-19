@@ -5,6 +5,8 @@ import app.ruhani.model.MeaningContributionDto
 import app.ruhani.model.MeaningContributionsPageDto
 import app.ruhani.model.MeaningsBundleDto
 import app.ruhani.model.WordMeaningDto
+import app.ruhani.model.WordSuggestionDto
+import app.ruhani.model.WordSuggestionsDto
 import app.ruhani.model.toDto
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.Authentication
@@ -36,6 +38,25 @@ class MeaningController(private val meaningStore: MeaningStore) {
                 m.toDto(viewerUpvoted = viewerId != null && meaningStore.hasUpvoted(m.id, viewerId))
             },
         )
+    }
+
+    /**
+     * Related words that share a stem with [word] in [lang] — used to
+     * surface morphological relatives (अपार ↔ अपारे, घर ↔ घरों).
+     * Advisory: the suggested entries are still distinct WordEntries
+     * with their own meaning lists.
+     */
+    @GetMapping("/word-meanings/suggestions")
+    fun suggestions(
+        @RequestParam word: String,
+        @RequestParam lang: String,
+        @RequestParam(required = false, defaultValue = "10") limit: Int,
+    ): WordSuggestionsDto {
+        val capped = limit.coerceIn(1, 25)
+        val items = meaningStore.suggestRelated(word, lang, capped).map { s ->
+            WordSuggestionDto(word = s.word, meaningCount = s.meaningCount)
+        }
+        return WordSuggestionsDto(items = items)
     }
 
     @GetMapping("/authors/{authorId}/word-meanings")

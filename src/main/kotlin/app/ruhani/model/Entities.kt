@@ -201,6 +201,10 @@ class WordEntryEntity(
 
     @Column(name = "language_code", nullable = false, length = 16)
     var languageCode: String = "",
+
+    /** Stripped-suffix lemma key for "related words" suggestions. */
+    @Column(nullable = false, length = 255)
+    var stem: String = "",
 ) {
     override fun equals(other: Any?) = other is WordEntryEntity && id == other.id
     override fun hashCode() = id.hashCode()

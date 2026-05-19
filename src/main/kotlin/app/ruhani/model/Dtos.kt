@@ -157,6 +157,9 @@ data class MeaningsBundleDto(
     val notes: List<ContextualNoteDto> = emptyList(),
 )
 
+data class WordSuggestionDto(val word: String, val meaningCount: Int)
+data class WordSuggestionsDto(val items: List<WordSuggestionDto>)
+
 // ── NLP ───────────────────────────────────────────────────────────────────────
 
 data class TransliterateRequest(

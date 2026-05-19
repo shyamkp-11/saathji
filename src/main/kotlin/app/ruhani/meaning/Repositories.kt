@@ -13,6 +13,28 @@ import org.springframework.stereotype.Repository
 @Repository
 interface WordEntryRepository : JpaRepository<WordEntryEntity, String> {
     fun findByNormalizedFormAndLanguageCode(normalizedForm: String, languageCode: String): WordEntryEntity?
+
+    /**
+     * Other WordEntries sharing this stem in the same language. Ordered by
+     * meaning count (entries with curated meanings surface first) then by
+     * normalized form alphabetical so ties are stable.
+     */
+    @Query(
+        """
+        SELECT w FROM WordEntryEntity w
+        WHERE w.stem = :stem
+          AND w.languageCode = :lang
+          AND w.id <> :excludeId
+        ORDER BY (SELECT COUNT(m) FROM WordMeaningEntity m WHERE m.wordEntryId = w.id) DESC,
+                 w.normalizedForm ASC
+        """
+    )
+    fun findRelatedByStem(
+        @Param("stem") stem: String,
+        @Param("lang") lang: String,
+        @Param("excludeId") excludeId: String,
+        pageable: org.springframework.data.domain.Pageable,
+    ): List<WordEntryEntity>
 }
 
 @Repository

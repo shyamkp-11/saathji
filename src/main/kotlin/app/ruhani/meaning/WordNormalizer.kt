@@ -92,6 +92,51 @@ object WordNormalizer {
         ),
     )
 
+    /**
+     * Best-effort stem for [canonical]. Strips common inflectional endings
+     * so morphological variants of the same lemma map to the same stem:
+     *   अपार    → अपार
+     *   अपारे   → अपार        (drop े)
+     *   घर       → घर
+     *   घरों     → घर          (drop ों)
+     *   लड़का   → लड़क        (drop ा)
+     *
+     * This is rule-based and will over-stem in places (पानी → पान). Used
+     * only for *suggestions*, never to merge WordEntries — so a false
+     * positive surfaces an extra "did you mean" rather than corrupting data.
+     */
+    fun stem(canonical: String, languageCode: String): String {
+        if (canonical.length < 3) return canonical
+        return when {
+            languageCode.startsWith("hi") -> stemIndic(canonical, DEVANAGARI_SUFFIXES, DEVANAGARI_TRAILABLES)
+            languageCode.startsWith("gu") -> stemIndic(canonical, GUJARATI_SUFFIXES, GUJARATI_TRAILABLES)
+            else -> canonical   // Latin: no stemming for v1
+        }
+    }
+
+    // Longest-first so we don't strip a 1-char suffix before checking a 3-char one.
+    private val DEVANAGARI_SUFFIXES = listOf("ियों", "ियाँ", "ाओं", "ाएँ", "ओं", "ों", "ें").sortedByDescending { it.length }
+    private val GUJARATI_SUFFIXES = listOf("ોને", "ોની", "ોમાં", "ોના", "ોએ", "ોનું", "ો").sortedByDescending { it.length }
+
+    private val DEVANAGARI_TRAILABLES: Set<Char> = setOf(
+        'ा', 'ि', 'ी', 'ु', 'ू', 'ृ', 'ॄ',  // ा ि ी ु ू ृ ॄ
+        'े', 'ै', 'ो', 'ौ',                                // े ै ो ौ
+        'ं', 'ँ', 'ः',                                          // ं ँ ः
+    )
+    private val GUJARATI_TRAILABLES: Set<Char> = setOf(
+        'ા', 'િ', 'ી', 'ુ', 'ૂ', 'ૃ', 'ૄ',
+        'ે', 'ૈ', 'ો', 'ૌ',
+        'ં', 'ઁ', 'ઃ',
+    )
+
+    private fun stemIndic(s: String, suffixes: List<String>, trailables: Set<Char>): String {
+        for (sfx in suffixes) {
+            if (s.endsWith(sfx) && s.length - sfx.length >= 2) return s.dropLast(sfx.length)
+        }
+        if (s.length >= 3 && s.last() in trailables) return s.dropLast(1)
+        return s
+    }
+
     private fun canonicalizeIndic(s: String, script: IndicScript): String {
         // 1. Drop nukta combining mark — variant chars collapse to their base.
         val deNukted = s.filter { it.code != script.nukta }

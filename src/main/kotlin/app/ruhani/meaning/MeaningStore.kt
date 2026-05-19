@@ -25,8 +25,15 @@ class MeaningStore(
         entries.findByNormalizedFormAndLanguageCode(normalized, languageCode)?.let { return it }
         // Concurrent inserts on the same (word, lang) race against the unique
         // index — catch and re-read so callers always get a managed entity.
+        val stem = WordNormalizer.stem(normalized, languageCode)
         return try {
-            entries.save(WordEntryEntity(normalizedForm = normalized, languageCode = languageCode))
+            entries.save(
+                WordEntryEntity(
+                    normalizedForm = normalized,
+                    languageCode = languageCode,
+                    stem = stem,
+                )
+            )
         } catch (_: DataIntegrityViolationException) {
             entries.findByNormalizedFormAndLanguageCode(normalized, languageCode)!!
         }
@@ -91,4 +98,32 @@ class MeaningStore(
     fun wordEntryIdsWithMeanings(wordEntryIds: Collection<String>): Set<String> =
         if (wordEntryIds.isEmpty()) emptySet()
         else meanings.findWordEntryIdsWithMeanings(wordEntryIds).toSet()
+
+    /**
+     * Suggest other WordEntries that share the same stem as [word] in
+     * [languageCode], excluding the (canonicalised) word itself. Used by
+     * the dictionary screen to surface morphological relatives like
+     * अपार and अपारे.
+     */
+    @Transactional(readOnly = true)
+    fun suggestRelated(word: String, languageCode: String, limit: Int): List<Suggestion> {
+        val canonical = WordNormalizer.canonicalize(word, languageCode)
+        val stem = WordNormalizer.stem(canonical, languageCode)
+        if (stem.isBlank()) return emptyList()
+        val current = entries.findByNormalizedFormAndLanguageCode(canonical, languageCode)
+        val candidates = entries.findRelatedByStem(
+            stem = stem,
+            lang = languageCode,
+            excludeId = current?.id ?: "",
+            pageable = org.springframework.data.domain.PageRequest.of(0, limit),
+        )
+        return candidates.map { entry ->
+            Suggestion(
+                word = entry.normalizedForm,
+                meaningCount = meanings.findByWordEntryIdOrderByUpvoteCountDesc(entry.id).size,
+            )
+        }
+    }
 }
+
+data class Suggestion(val word: String, val meaningCount: Int)
