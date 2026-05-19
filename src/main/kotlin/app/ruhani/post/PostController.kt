@@ -110,18 +110,18 @@ class PostController(
     }
 
     /**
-     * Begin editing a published post.
-     *
-     *   - **No community contributions yet** (no meanings authored by anyone
-     *     other than the post's author): the post is flipped back to DRAFT
-     *     in place. Publishing it later just re-PUBLISHEs the same row —
-     *     no version bump, no SUPERSEDED ancestor, same URL slug.
-     *   - **Community has contributed**: snapshot into a new DRAFT row with
-     *     `parent_post_id` pointing at [id]. Publishing demotes the parent
-     *     to SUPERSEDED so the feed shows only the latest revision.
+     * Begin editing a published post — currently always in-place: the post
+     * is flipped back to DRAFT, the author edits, and publishing re-PUBLISHEs
+     * the same row (no version bump, same id, same slug).
      *
      * Refuses on non-published posts (drafts are already editable in place;
      * superseded versions shouldn't be branched from).
+     *
+     * Forks-via-[PostStore.snapshot] (which creates a new DRAFT row pointing
+     * back at this one and supersedes the parent on publish) are kept around
+     * for the eventual post-level comments feature: once a post has any
+     * public comment, an edit will fork a new version so commenters' replies
+     * stay anchored to the version they actually saw.
      */
     @PostMapping("/posts/{id}/edit")
     @ResponseStatus(HttpStatus.CREATED)
@@ -134,12 +134,8 @@ class PostController(
                 "Only published posts can be edited (status was ${source.status})"
             )
         }
-        return if (meaningStore.hasCommunityMeanings(source.id, source.authorId)) {
-            postStore.snapshot(source).toDto()
-        } else {
-            source.status = "DRAFT"
-            postStore.save(source).toDto()
-        }
+        source.status = "DRAFT"
+        return postStore.save(source).toDto()
     }
 
     @DeleteMapping("/posts/{id}")
