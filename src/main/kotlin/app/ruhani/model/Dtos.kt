@@ -96,6 +96,8 @@ data class TokenDto(
     val ordinal: Int,
     val text: String,
     val wordEntryId: String,
+    /** True when at least one community meaning exists on this token's word. */
+    val hasMeanings: Boolean = false,
 )
 
 data class FeedItemDto(

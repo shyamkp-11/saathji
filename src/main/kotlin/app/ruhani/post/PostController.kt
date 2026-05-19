@@ -31,8 +31,21 @@ class PostController(
     // ── Single post ───────────────────────────────────────────────────────────
 
     @GetMapping("/posts/{id}")
-    fun getPost(@PathVariable id: String): PostDto =
-        postStore.findById(id)?.toDto() ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+    fun getPost(@PathVariable id: String): PostDto {
+        val post = postStore.findById(id) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        val tokenWordEntryIds = post.lines.flatMap { it.tokens }.map { it.wordEntryId }.toSet()
+        val withMeanings = meaningStore.wordEntryIdsWithMeanings(tokenWordEntryIds)
+        val dto = post.toDto()
+        return dto.copy(
+            lines = dto.lines.map { line ->
+                line.copy(
+                    tokens = line.tokens.map { token ->
+                        token.copy(hasMeanings = token.wordEntryId in withMeanings)
+                    }
+                )
+            }
+        )
+    }
 
     // ── Author posts (profile screen) ─────────────────────────────────────────
 

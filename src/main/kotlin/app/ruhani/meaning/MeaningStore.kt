@@ -82,4 +82,10 @@ class MeaningStore(
     @Transactional(readOnly = true)
     fun hasUpvoted(meaningId: String, userId: String): Boolean =
         upvotes.existsByMeaningIdAndUserId(meaningId, userId)
+
+    /** Subset of [wordEntryIds] that has at least one meaning. */
+    @Transactional(readOnly = true)
+    fun wordEntryIdsWithMeanings(wordEntryIds: Collection<String>): Set<String> =
+        if (wordEntryIds.isEmpty()) emptySet()
+        else meanings.findWordEntryIdsWithMeanings(wordEntryIds).toSet()
 }

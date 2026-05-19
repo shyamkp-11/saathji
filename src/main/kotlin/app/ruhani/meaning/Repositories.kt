@@ -21,6 +21,16 @@ interface WordMeaningRepository : JpaRepository<WordMeaningEntity, String> {
 
     fun findByAuthorIdOrderByCreatedAtDesc(authorId: String): List<WordMeaningEntity>
 
+    /**
+     * Of the supplied word-entry ids, returns the subset that has at least
+     * one meaning. Used by [PostController.getPost] to mark tappable words
+     * with a dot indicator in PostDetail.
+     */
+    @Query(
+        "SELECT DISTINCT m.wordEntryId FROM WordMeaningEntity m WHERE m.wordEntryId IN :ids"
+    )
+    fun findWordEntryIdsWithMeanings(@Param("ids") ids: Collection<String>): List<String>
+
     @Modifying
     @Query("UPDATE WordMeaningEntity m SET m.upvoteCount = m.upvoteCount + :delta WHERE m.id = :id")
     fun adjustUpvoteCount(@Param("id") id: String, @Param("delta") delta: Int): Int
