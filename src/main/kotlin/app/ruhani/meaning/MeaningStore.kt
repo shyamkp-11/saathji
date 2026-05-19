@@ -82,4 +82,13 @@ class MeaningStore(
     @Transactional(readOnly = true)
     fun hasUpvoted(meaningId: String, userId: String): Boolean =
         upvotes.existsByMeaningIdAndUserId(meaningId, userId)
+
+    /**
+     * True when the post has any meaning authored by someone OTHER than
+     * [authorId]. Used by the post-edit flow to skip versioning when no
+     * one else has contributed yet.
+     */
+    @Transactional(readOnly = true)
+    fun hasCommunityMeanings(postId: String, authorId: String): Boolean =
+        meanings.countOthersOnPost(postId, authorId) > 0
 }

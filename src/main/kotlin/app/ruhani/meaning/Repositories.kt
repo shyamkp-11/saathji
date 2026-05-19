@@ -21,6 +21,29 @@ interface WordMeaningRepository : JpaRepository<WordMeaningEntity, String> {
 
     fun findByAuthorIdOrderByCreatedAtDesc(authorId: String): List<WordMeaningEntity>
 
+    /**
+     * Count meanings on [postId] authored by anyone OTHER than [excludeAuthorId].
+     * Used to decide whether editing a post should fork a new version (when
+     * community contributions exist) or edit it in place (when only the
+     * author's own seed meanings exist, or none).
+     */
+    @Query(
+        """
+        SELECT COUNT(m) FROM WordMeaningEntity m
+        WHERE m.authorId <> :excludeAuthorId
+          AND m.wordEntryId IN (
+            SELECT t.wordEntryId FROM TokenEntity t
+            WHERE t.lineId IN (
+              SELECT l.id FROM LineEntity l WHERE l.postId = :postId
+            )
+          )
+        """
+    )
+    fun countOthersOnPost(
+        @Param("postId") postId: String,
+        @Param("excludeAuthorId") excludeAuthorId: String,
+    ): Long
+
     @Modifying
     @Query("UPDATE WordMeaningEntity m SET m.upvoteCount = m.upvoteCount + :delta WHERE m.id = :id")
     fun adjustUpvoteCount(@Param("id") id: String, @Param("delta") delta: Int): Int

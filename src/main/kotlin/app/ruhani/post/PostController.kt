@@ -110,10 +110,15 @@ class PostController(
     }
 
     /**
-     * Snapshot a published post into a fresh DRAFT row so the author can
-     * edit it without affecting the live version. The new row's
-     * `parent_post_id` points back at [id]; publishing it later supersedes
-     * the parent (see [publish]).
+     * Begin editing a published post.
+     *
+     *   - **No community contributions yet** (no meanings authored by anyone
+     *     other than the post's author): the post is flipped back to DRAFT
+     *     in place. Publishing it later just re-PUBLISHEs the same row —
+     *     no version bump, no SUPERSEDED ancestor, same URL slug.
+     *   - **Community has contributed**: snapshot into a new DRAFT row with
+     *     `parent_post_id` pointing at [id]. Publishing demotes the parent
+     *     to SUPERSEDED so the feed shows only the latest revision.
      *
      * Refuses on non-published posts (drafts are already editable in place;
      * superseded versions shouldn't be branched from).
@@ -129,7 +134,12 @@ class PostController(
                 "Only published posts can be edited (status was ${source.status})"
             )
         }
-        return postStore.snapshot(source).toDto()
+        return if (meaningStore.hasCommunityMeanings(source.id, source.authorId)) {
+            postStore.snapshot(source).toDto()
+        } else {
+            source.status = "DRAFT"
+            postStore.save(source).toDto()
+        }
     }
 
     @DeleteMapping("/posts/{id}")
