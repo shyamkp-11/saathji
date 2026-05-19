@@ -28,10 +28,26 @@ import java.text.Normalizer
  */
 object WordNormalizer {
 
-    fun canonicalize(input: String, languageCode: String): String {
-        val base = Normalizer.normalize(input.trim(), Normalizer.Form.NFC)
-            .trimEnd('.', ',', '!', '?', ';', ':', '।', '।')
+    /**
+     * Display form of a tokeniser-produced word: strips boundary
+     * punctuation that whitespace-splitting drags along (commas, full
+     * stops, dandas, etc.). Used by [PostController.createDraft] /
+     * [PostController.updateStaging] so the token's display text
+     * doesn't differ from the lookup key by stray punctuation.
+     */
+    fun stripBoundaryPunctuation(input: String): String =
+        input.trim()
+            .trimEnd(*PUNCT)
+            .trimStart(*PUNCT)
             .trim()
+
+    private val PUNCT = charArrayOf(
+        '.', ',', '!', '?', ';', ':', '।', '॥',  // common
+        '\'', '"', '“', '”', '‘', '’', '(', ')', '[', ']', '{', '}',
+    )
+
+    fun canonicalize(input: String, languageCode: String): String {
+        val base = Normalizer.normalize(stripBoundaryPunctuation(input), Normalizer.Form.NFC)
             .lowercase()
         return when {
             languageCode.startsWith("hi") -> canonicalizeIndic(base, DEVANAGARI)
